@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { Client, JobError, AuthenticationError } from "keboola-query-service";
+import { Client, JobError, AuthenticationError } from "@keboola/query-service";
 
 // Initialize client (consider using environment variables)
 const client = new Client({

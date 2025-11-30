@@ -1,6 +1,6 @@
 {
-  "name": "keboola-query-service",
-  "version": "0.1.0",
+  "name": "@keboola/query-service",
+  "version": "0.1.1",
   "description": "TypeScript SDK for Keboola Query Service API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -39,11 +39,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/keboola/query-service-ts-sdk"
+    "url": "git+https://github.com/keboola/query-service-api-js-sdk.git"
   },
-  "homepage": "https://github.com/keboola/query-service-ts-sdk#readme",
+  "homepage": "https://github.com/keboola/query-service-api-js-sdk#readme",
   "bugs": {
-    "url": "https://github.com/keboola/query-service-ts-sdk/issues"
+    "url": "https://github.com/keboola/query-service-api-js-sdk/issues"
   },
   "engines": {
     "node": ">=18.0.0"

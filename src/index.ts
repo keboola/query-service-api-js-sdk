@@ -8,7 +8,7 @@
  *
  * @example Quick Start
  * ```typescript
- * import { Client } from 'keboola-query-service';
+ * import { Client } from '@keboola/query-service';
  *
  * // Initialize client
  * // IMPORTANT: Use query.keboola.com (NOT connection.keboola.com)
@@ -39,7 +39,7 @@
  *   ValidationError,
  *   JobError,
  *   JobTimeoutError,
- * } from 'keboola-query-service';
+ * } from '@keboola/query-service';
  *
  * try {
  *   const results = await client.executeQuery({...});

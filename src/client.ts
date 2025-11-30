@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { Client } from 'keboola-query-service';
+ * import { Client } from '@keboola/query-service';
  *
  * const client = new Client({
  *   baseUrl: 'https://query.keboola.com',
@@ -42,7 +42,7 @@ import {
   isTerminalState,
 } from "./types";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 const DEFAULT_TIMEOUT = 120000; // 2 minutes
 const DEFAULT_MAX_RETRIES = 3;

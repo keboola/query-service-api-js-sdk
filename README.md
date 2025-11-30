@@ -5,17 +5,17 @@ TypeScript client for [Keboola Query Service API](https://query.keboola.com/api/
 ## Installation
 
 ```bash
-npm install keboola-query-service
+npm install @keboola/query-service
 # or
-yarn add keboola-query-service
+yarn add @keboola/query-service
 # or
-pnpm add keboola-query-service
+pnpm add @keboola/query-service
 ```
 
 ## Quick Start
 
 ```typescript
-import { Client } from 'keboola-query-service';
+import { Client } from '@keboola/query-service';
 
 // Initialize client
 // IMPORTANT: Use query.keboola.com (NOT connection.keboola.com)
@@ -59,7 +59,7 @@ for (const result of results) {
 ### Basic Query Execution
 
 ```typescript
-import { Client } from 'keboola-query-service';
+import { Client } from '@keboola/query-service';
 
 const client = new Client({
   baseUrl: 'https://query.keboola.com',
@@ -132,7 +132,7 @@ import {
   ValidationError,
   JobError,
   JobTimeoutError,
-} from 'keboola-query-service';
+} from '@keboola/query-service';
 
 try {
   const results = await client.executeQuery({...});
@@ -157,7 +157,7 @@ try {
 ```typescript
 // app/api/query/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { Client, JobError } from 'keboola-query-service';
+import { Client, JobError } from '@keboola/query-service';
 
 const client = new Client({
   baseUrl: process.env.KEBOOLA_QUERY_URL!,
