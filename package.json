@@ -1,6 +1,6 @@
 {
   "name": "@keboola/query-service",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TypeScript SDK for Keboola Query Service API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

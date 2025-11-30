@@ -42,7 +42,7 @@ import {
   isTerminalState,
 } from "./types";
 
-const VERSION = "0.1.2";
+const VERSION = "0.1.3";
 
 const DEFAULT_TIMEOUT = 120000; // 2 minutes
 const DEFAULT_MAX_RETRIES = 3;
