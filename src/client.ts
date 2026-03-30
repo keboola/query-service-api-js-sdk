@@ -209,11 +209,14 @@ export class Client {
       "POST",
       `/api/v1/branches/${options.branchId}/workspaces/${options.workspaceId}/queries`,
       {
-        body: {
-          statements: options.statements,
-          transactional: options.transactional ?? true,
-          actorType: options.actorType ?? "user",
-        },
+          body: {
+            statements: options.statements,
+            transactional: options.transactional ?? true,
+            actorType: options.actorType ?? "user",
+            ...(options.refreshMetadataOnSuccess !== undefined && {
+              refreshMetadataOnSuccess: options.refreshMetadataOnSuccess,
+            }),
+          },
       }
     );
     return data.queryJobId;
@@ -371,6 +374,7 @@ export class Client {
       statements: options.statements,
       transactional: options.transactional,
       actorType: options.actorType,
+      refreshMetadataOnSuccess: options.refreshMetadataOnSuccess,
     });
 
     // Wait for completion

@@ -113,6 +113,8 @@ export interface ExecuteQueryOptions {
   actorType?: ActorType;
   /** Maximum time to wait for completion in milliseconds (default: 300000) */
   maxWaitTime?: number;
+  /** Whether to refresh workspace metadata after successful execution */
+  refreshMetadataOnSuccess?: boolean;
 }
 
 /** Options for submitting a job */
@@ -127,6 +129,8 @@ export interface SubmitJobOptions {
   transactional?: boolean;
   /** Actor type (default: "user") */
   actorType?: ActorType;
+  /** Whether to refresh workspace metadata after successful execution */
+  refreshMetadataOnSuccess?: boolean;
 }
 
 /** Options for getting job results */
