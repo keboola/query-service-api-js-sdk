@@ -60,6 +60,78 @@ describe("Client", () => {
       );
     });
 
+    it("should not include refreshMetadataOnSuccess when not set", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+
+      await client.submitJob({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["SELECT 1"],
+      });
+
+      const requestBody = JSON.parse(
+        mockFetch.mock.calls[0][1].body as string
+      );
+      expect(requestBody).toEqual({
+        statements: ["SELECT 1"],
+        transactional: true,
+        actorType: "user",
+      });
+      expect(requestBody).not.toHaveProperty("refreshMetadataOnSuccess");
+    });
+
+    it("should include refreshMetadataOnSuccess when set to true", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-456" }),
+      });
+
+      const jobId = await client.submitJob({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["SELECT 1"],
+        refreshMetadataOnSuccess: true,
+      });
+
+      expect(jobId).toBe("job-456");
+      const requestBody = JSON.parse(
+        mockFetch.mock.calls[0][1].body as string
+      );
+      expect(requestBody).toEqual({
+        statements: ["SELECT 1"],
+        transactional: true,
+        actorType: "user",
+        refreshMetadataOnSuccess: true,
+      });
+    });
+
+    it("should include refreshMetadataOnSuccess when set to false", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-789" }),
+      });
+
+      await client.submitJob({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["SELECT 1"],
+        refreshMetadataOnSuccess: false,
+      });
+
+      const requestBody = JSON.parse(
+        mockFetch.mock.calls[0][1].body as string
+      );
+      expect(requestBody).toEqual({
+        statements: ["SELECT 1"],
+        transactional: true,
+        actorType: "user",
+        refreshMetadataOnSuccess: false,
+      });
+    });
+
     it("should throw AuthenticationError on 401", async () => {
       mockFetch.mockResolvedValueOnce({
         status: 401,

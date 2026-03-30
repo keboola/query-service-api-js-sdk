@@ -213,6 +213,9 @@ export class Client {
           statements: options.statements,
           transactional: options.transactional ?? true,
           actorType: options.actorType ?? "user",
+          ...(options.refreshMetadataOnSuccess !== undefined && {
+            refreshMetadataOnSuccess: options.refreshMetadataOnSuccess,
+          }),
         },
       }
     );
@@ -371,6 +374,7 @@ export class Client {
       statements: options.statements,
       transactional: options.transactional,
       actorType: options.actorType,
+      refreshMetadataOnSuccess: options.refreshMetadataOnSuccess,
     });
 
     // Wait for completion
