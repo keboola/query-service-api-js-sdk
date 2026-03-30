@@ -209,14 +209,14 @@ export class Client {
       "POST",
       `/api/v1/branches/${options.branchId}/workspaces/${options.workspaceId}/queries`,
       {
-          body: {
-            statements: options.statements,
-            transactional: options.transactional ?? true,
-            actorType: options.actorType ?? "user",
-            ...(options.refreshMetadataOnSuccess !== undefined && {
-              refreshMetadataOnSuccess: options.refreshMetadataOnSuccess,
-            }),
-          },
+        body: {
+          statements: options.statements,
+          transactional: options.transactional ?? true,
+          actorType: options.actorType ?? "user",
+          ...(options.refreshMetadataOnSuccess !== undefined && {
+            refreshMetadataOnSuccess: options.refreshMetadataOnSuccess,
+          }),
+        },
       }
     );
     return data.queryJobId;
