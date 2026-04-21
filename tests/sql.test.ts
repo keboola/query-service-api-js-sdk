@@ -274,3 +274,52 @@ describe("sql tagged template", () => {
     expect(sql`x = ${s}`).toBe("x = 'a\\\\nb'");
   });
 });
+
+describe("SafeSql passthrough", () => {
+  const sql = createSql("snowflake");
+
+  it("literal returns the same SafeSql unchanged", () => {
+    const marker = sql.raw("CURRENT_TIMESTAMP");
+    expect(sql.literal(marker)).toBe(marker);
+  });
+
+  it("literal returns ident unchanged", () => {
+    const i = sql.ident("in.c-main", "customers");
+    expect(sql.literal(i)).toBe(i);
+  });
+});
+
+describe("literal - unknown types", () => {
+  const sql = createSql("snowflake");
+
+  it("rejects plain object with hint", () => {
+    expect(() => sql.literal({ a: 1 })).toThrow(/convert to string/);
+  });
+
+  it("rejects Symbol", () => {
+    expect(() => sql.literal(Symbol("x"))).toThrow(TypeError);
+  });
+
+  it("rejects function", () => {
+    expect(() => sql.literal(() => 1)).toThrow(TypeError);
+  });
+});
+
+describe("raw", () => {
+  const sql = createSql("snowflake");
+
+  it("returns SafeSql with identical sql", () => {
+    const r = sql.raw("CURRENT_TIMESTAMP");
+    expect(r.__safe).toBe(true);
+    expect(r.sql).toBe("CURRENT_TIMESTAMP");
+  });
+
+  it("rejects non-string", () => {
+    // @ts-expect-error invalid input
+    expect(() => sql.raw(123)).toThrow(TypeError);
+  });
+
+  it("passes through in tagged template", () => {
+    expect(sql`ts = ${sql.raw("CURRENT_TIMESTAMP")}`).toBe("ts = CURRENT_TIMESTAMP");
+  });
+});
