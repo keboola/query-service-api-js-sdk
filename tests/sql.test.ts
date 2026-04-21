@@ -323,3 +323,11 @@ describe("raw", () => {
     expect(sql`ts = ${sql.raw("CURRENT_TIMESTAMP")}`).toBe("ts = CURRENT_TIMESTAMP");
   });
 });
+
+describe("public package exports", () => {
+  it("createSql, Dialect, SafeSql, Sql are re-exported from index", async () => {
+    const pkg = await import("../src/index");
+    expect(typeof pkg.createSql).toBe("function");
+    // Dialect, SafeSql, Sql are types — import checks them at compile time.
+  });
+});

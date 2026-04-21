@@ -97,3 +97,7 @@ export {
   JobError,
   JobTimeoutError,
 } from "./errors";
+
+// SQL escape helper
+export { createSql } from "./sql";
+export type { Dialect, SafeSql, Sql } from "./sql";
