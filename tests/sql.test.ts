@@ -205,3 +205,37 @@ describe("literal - Array", () => {
     expect(() => sql.literal([1, [2, 3]])).toThrow(TypeError);
   });
 });
+
+describe("date", () => {
+  it("from YYYY-MM-DD string (snowflake)", () => {
+    expect(createSql("snowflake").date("2026-04-21").sql).toBe(
+      "'2026-04-21'::DATE",
+    );
+  });
+
+  it("from YYYY-MM-DD string (bigquery)", () => {
+    expect(createSql("bigquery").date("2026-04-21").sql).toBe(
+      "DATE '2026-04-21'",
+    );
+  });
+
+  it("from Date uses UTC components", () => {
+    const d = new Date("2026-04-21T23:00:00-08:00"); // UTC: 2026-04-22T07:00:00Z
+    expect(createSql("snowflake").date(d).sql).toBe("'2026-04-22'::DATE");
+  });
+
+  it("from Date at midnight UTC", () => {
+    const d = new Date("2026-04-21T00:00:00Z");
+    expect(createSql("snowflake").date(d).sql).toBe("'2026-04-21'::DATE");
+  });
+
+  it("rejects malformed string", () => {
+    expect(() => createSql("snowflake").date("2026/04/21")).toThrow(TypeError);
+    expect(() => createSql("snowflake").date("not-a-date")).toThrow(TypeError);
+  });
+
+  it("rejects non-Date non-string", () => {
+    // @ts-expect-error invalid input
+    expect(() => createSql("snowflake").date(42)).toThrow(TypeError);
+  });
+});

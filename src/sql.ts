@@ -167,6 +167,36 @@ export function createSql(dialect: Dialect): Sql {
     );
   }
 
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+  function date(value: Date | string): SafeSql {
+    let iso: string;
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        throw new TypeError("date() received an invalid Date");
+      }
+      const yyyy = String(value.getUTCFullYear()).padStart(4, "0");
+      const mm = String(value.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(value.getUTCDate()).padStart(2, "0");
+      iso = `${yyyy}-${mm}-${dd}`;
+    } else if (typeof value === "string") {
+      if (!DATE_RE.test(value)) {
+        throw new TypeError(
+          `date() expects Date or 'YYYY-MM-DD' string, got: ${JSON.stringify(value)}`,
+        );
+      }
+      iso = value;
+    } else {
+      throw new TypeError(
+        `date() expects Date or 'YYYY-MM-DD' string, got: ${typeof value}`,
+      );
+    }
+    if (dialect === "snowflake") {
+      return makeSafe(`'${iso}'::DATE`);
+    }
+    return makeSafe(`DATE '${iso}'`);
+  }
+
   // Tag function — populated in subsequent tasks.
   function tag(_strings: TemplateStringsArray, ..._values: unknown[]): string {
     throw new Error("sql`...` not implemented yet");
@@ -178,8 +208,6 @@ export function createSql(dialect: Dialect): Sql {
   api.raw = raw;
   api.literal = literal;
   api.ident = ident;
-  api.date = () => {
-    throw new Error("date() not implemented yet");
-  };
+  api.date = date;
   return api;
 }
