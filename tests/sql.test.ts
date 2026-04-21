@@ -153,3 +153,33 @@ describe("literal - strings", () => {
     expect(() => createSql("snowflake").literal("a\x00b")).toThrow(TypeError);
   });
 });
+
+describe("literal - Date", () => {
+  it("snowflake emits TIMESTAMP_TZ in UTC with millisecond precision", () => {
+    const d = new Date("2026-04-21T14:30:45.123Z");
+    expect(createSql("snowflake").literal(d).sql).toBe(
+      "'2026-04-21 14:30:45.123+00:00'::TIMESTAMP_TZ",
+    );
+  });
+
+  it("bigquery emits TIMESTAMP in UTC", () => {
+    const d = new Date("2026-04-21T14:30:45.123Z");
+    expect(createSql("bigquery").literal(d).sql).toBe(
+      "TIMESTAMP '2026-04-21 14:30:45.123+00:00'",
+    );
+  });
+
+  it("zero milliseconds still emit .000", () => {
+    const d = new Date("2026-04-21T14:30:45.000Z");
+    expect(createSql("snowflake").literal(d).sql).toBe(
+      "'2026-04-21 14:30:45.000+00:00'::TIMESTAMP_TZ",
+    );
+  });
+
+  it("cross-zone input normalized to UTC in output", () => {
+    const d = new Date("2026-04-21T14:30:00-08:00"); // 22:30:00Z
+    expect(createSql("snowflake").literal(d).sql).toBe(
+      "'2026-04-21 22:30:00.000+00:00'::TIMESTAMP_TZ",
+    );
+  });
+});

@@ -128,7 +128,24 @@ export function createSql(dialect: Dialect): Sql {
       const escaped = value.replace(/\\/g, "\\\\").replace(/'/g, "''");
       return makeSafe(`'${escaped}'`);
     }
-    // Further types (Date, Array) added in later tasks.
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        throw new RangeError("Cannot escape invalid Date");
+      }
+      const yyyy = String(value.getUTCFullYear()).padStart(4, "0");
+      const mm = String(value.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(value.getUTCDate()).padStart(2, "0");
+      const HH = String(value.getUTCHours()).padStart(2, "0");
+      const MM = String(value.getUTCMinutes()).padStart(2, "0");
+      const SS = String(value.getUTCSeconds()).padStart(2, "0");
+      const fff = String(value.getUTCMilliseconds()).padStart(3, "0");
+      const iso = `${yyyy}-${mm}-${dd} ${HH}:${MM}:${SS}.${fff}+00:00`;
+      if (dialect === "snowflake") {
+        return makeSafe(`'${iso}'::TIMESTAMP_TZ`);
+      }
+      return makeSafe(`TIMESTAMP '${iso}'`);
+    }
+    // Further types (Array) added in later tasks.
     throw new TypeError(
       `Cannot escape value of type ${typeof value}. ` +
         `Supported: null/undefined, boolean, number, bigint, string, Date, ` +
