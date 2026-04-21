@@ -128,6 +128,20 @@ export function createSql(dialect: Dialect): Sql {
       const escaped = value.replace(/\\/g, "\\\\").replace(/'/g, "''");
       return makeSafe(`'${escaped}'`);
     }
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return makeSafe("(NULL)");
+      }
+      const parts = value.map((elem) => {
+        if (Array.isArray(elem)) {
+          throw new TypeError(
+            "Nested arrays are not supported in SQL literals",
+          );
+        }
+        return literal(elem).sql;
+      });
+      return makeSafe(`(${parts.join(", ")})`);
+    }
     if (value instanceof Date) {
       if (Number.isNaN(value.getTime())) {
         throw new RangeError("Cannot escape invalid Date");
@@ -145,7 +159,6 @@ export function createSql(dialect: Dialect): Sql {
       }
       return makeSafe(`TIMESTAMP '${iso}'`);
     }
-    // Further types (Array) added in later tasks.
     throw new TypeError(
       `Cannot escape value of type ${typeof value}. ` +
         `Supported: null/undefined, boolean, number, bigint, string, Date, ` +

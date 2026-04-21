@@ -183,3 +183,25 @@ describe("literal - Date", () => {
     );
   });
 });
+
+describe("literal - Array", () => {
+  const sql = createSql("snowflake");
+
+  it("non-empty", () => {
+    expect(sql.literal([1, 2, 3]).sql).toBe("(1, 2, 3)");
+  });
+
+  it("mixed types", () => {
+    expect(sql.literal([1, "a", null, true]).sql).toBe(
+      "(1, 'a', NULL, TRUE)",
+    );
+  });
+
+  it("empty → (NULL)", () => {
+    expect(sql.literal([]).sql).toBe("(NULL)");
+  });
+
+  it("nested array throws", () => {
+    expect(() => sql.literal([1, [2, 3]])).toThrow(TypeError);
+  });
+});
