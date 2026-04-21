@@ -96,3 +96,60 @@ describe("ident - bigquery", () => {
     expect(() => sql.ident("a\x00b")).toThrow(TypeError);
   });
 });
+
+describe("literal - primitives", () => {
+  const sql = createSql("snowflake");
+
+  it("null → NULL", () => expect(sql.literal(null).sql).toBe("NULL"));
+  it("undefined → NULL", () => expect(sql.literal(undefined).sql).toBe("NULL"));
+
+  it("true → TRUE", () => expect(sql.literal(true).sql).toBe("TRUE"));
+  it("false → FALSE", () => expect(sql.literal(false).sql).toBe("FALSE"));
+
+  it("number int", () => expect(sql.literal(42).sql).toBe("42"));
+  it("number negative", () => expect(sql.literal(-1).sql).toBe("-1"));
+  it("number float", () => expect(sql.literal(1.5).sql).toBe("1.5"));
+  it("number 0.1+0.2 round-trip lockin", () => {
+    expect(sql.literal(0.1 + 0.2).sql).toBe("0.30000000000000004");
+  });
+  it("number 1e300 scientific notation", () => {
+    expect(sql.literal(1e300).sql).toBe("1e+300");
+  });
+
+  it("bigint → decimal", () => expect(sql.literal(42n).sql).toBe("42"));
+  it("bigint large", () => {
+    expect(sql.literal(10n ** 100n).sql).toBe("1" + "0".repeat(100));
+  });
+
+  it("rejects NaN", () => {
+    expect(() => sql.literal(NaN)).toThrow(RangeError);
+  });
+  it("rejects Infinity", () => {
+    expect(() => sql.literal(Infinity)).toThrow(RangeError);
+  });
+  it("rejects -Infinity", () => {
+    expect(() => sql.literal(-Infinity)).toThrow(RangeError);
+  });
+});
+
+describe("literal - strings", () => {
+  it("empty string", () => {
+    expect(createSql("snowflake").literal("").sql).toBe("''");
+  });
+  it("doubles internal single quote", () => {
+    expect(createSql("snowflake").literal("O'Brien").sql).toBe("'O''Brien'");
+  });
+  it("escapes backslash (snowflake regression)", () => {
+    // Source string is 4 chars: a, \, n, b
+    expect(createSql("snowflake").literal("a\\nb").sql).toBe("'a\\\\nb'");
+  });
+  it("escapes backslash (bigquery)", () => {
+    expect(createSql("bigquery").literal("a\\nb").sql).toBe("'a\\\\nb'");
+  });
+  it("preserves literal newline byte", () => {
+    expect(createSql("snowflake").literal("a\nb").sql).toBe("'a\nb'");
+  });
+  it("rejects NUL", () => {
+    expect(() => createSql("snowflake").literal("a\x00b")).toThrow(TypeError);
+  });
+});

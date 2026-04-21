@@ -97,6 +97,46 @@ export function createSql(dialect: Dialect): Sql {
     return `\`${escaped}\``;
   }
 
+  function literal(value: unknown): SafeSql {
+    if (isSafeSql(value)) {
+      return value;
+    }
+    if (value === null || value === undefined) {
+      return makeSafe("NULL");
+    }
+    if (typeof value === "boolean") {
+      return makeSafe(value ? "TRUE" : "FALSE");
+    }
+    if (typeof value === "bigint") {
+      return makeSafe(String(value));
+    }
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) {
+        throw new RangeError(
+          `Cannot escape non-finite number: ${value}. ` +
+            `Snowflake and BigQuery literals do not support NaN/Infinity.`,
+        );
+      }
+      return makeSafe(String(value));
+    }
+    if (typeof value === "string") {
+      if (value.includes("\x00")) {
+        throw new TypeError(
+          "String literal contains NUL character, which neither Snowflake nor BigQuery accept",
+        );
+      }
+      const escaped = value.replace(/\\/g, "\\\\").replace(/'/g, "''");
+      return makeSafe(`'${escaped}'`);
+    }
+    // Further types (Date, Array) added in later tasks.
+    throw new TypeError(
+      `Cannot escape value of type ${typeof value}. ` +
+        `Supported: null/undefined, boolean, number, bigint, string, Date, ` +
+        `Array, SafeSql. If you have a Decimal/BigDecimal/UUID/Buffer value, ` +
+        `convert to string explicitly and pass that.`,
+    );
+  }
+
   // Tag function — populated in subsequent tasks.
   function tag(_strings: TemplateStringsArray, ..._values: unknown[]): string {
     throw new Error("sql`...` not implemented yet");
@@ -106,10 +146,7 @@ export function createSql(dialect: Dialect): Sql {
   // Attach methods.
   Object.defineProperty(api, "dialect", { value: dialect, enumerable: true });
   api.raw = raw;
-  // literal, ident, date added in later tasks.
-  api.literal = () => {
-    throw new Error("literal() not implemented yet");
-  };
+  api.literal = literal;
   api.ident = ident;
   api.date = () => {
     throw new Error("date() not implemented yet");
