@@ -239,3 +239,38 @@ describe("date", () => {
     expect(() => createSql("snowflake").date(42)).toThrow(TypeError);
   });
 });
+
+describe("sql tagged template", () => {
+  const sql = createSql("snowflake");
+
+  it("single interpolation escapes the value", () => {
+    expect(sql`SET x = ${"O'Brien"}`).toBe("SET x = 'O''Brien'");
+  });
+
+  it("multiple interpolations", () => {
+    const result = sql`SET a = ${1}, b = ${"two"}, c = ${null}`;
+    expect(result).toBe("SET a = 1, b = 'two', c = NULL");
+  });
+
+  it("SafeSql passes through", () => {
+    const table = sql.ident("in.c-main", "approvals");
+    const q = sql`UPDATE ${table} SET x = ${"o'brien"}`;
+    expect(q).toBe("UPDATE \"in.c-main\".\"approvals\" SET x = 'o''brien'");
+  });
+
+  it("empty template", () => {
+    expect(sql``).toBe("");
+  });
+
+  it("end-to-end docs example", () => {
+    const q = sql`UPDATE ${sql.ident("in.c-main", "approvals")} SET status = ${"approved"}, updated_at = ${sql.raw("CURRENT_TIMESTAMP")} WHERE id = ${123}`;
+    expect(q).toBe(
+      "UPDATE \"in.c-main\".\"approvals\" SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = 123",
+    );
+  });
+
+  it("backslash string round-trips via snowflake escape", () => {
+    const s = "a\\nb"; // 4 chars: a, \, n, b
+    expect(sql`x = ${s}`).toBe("x = 'a\\\\nb'");
+  });
+});

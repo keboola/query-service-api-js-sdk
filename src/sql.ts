@@ -197,9 +197,14 @@ export function createSql(dialect: Dialect): Sql {
     return makeSafe(`DATE '${iso}'`);
   }
 
-  // Tag function — populated in subsequent tasks.
-  function tag(_strings: TemplateStringsArray, ..._values: unknown[]): string {
-    throw new Error("sql`...` not implemented yet");
+  function tag(strings: TemplateStringsArray, ...values: unknown[]): string {
+    let result = strings[0] ?? "";
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      const piece = isSafeSql(v) ? v.sql : literal(v).sql;
+      result += piece + (strings[i + 1] ?? "");
+    }
+    return result;
   }
 
   const api = tag as Sql;
