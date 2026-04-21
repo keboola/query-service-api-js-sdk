@@ -27,3 +27,72 @@ describe("SafeSql", () => {
     expect(s.sql).toBe("X");
   });
 });
+
+describe("ident - snowflake", () => {
+  const sql = createSql("snowflake");
+
+  it("quotes single part", () => {
+    expect(sql.ident("status").sql).toBe('"status"');
+  });
+
+  it("preserves dots in multi-part", () => {
+    expect(sql.ident("in.c-main", "customers").sql).toBe(
+      '"in.c-main"."customers"',
+    );
+  });
+
+  it("doubles internal double quote", () => {
+    expect(sql.ident('a"b').sql).toBe('"a""b"');
+  });
+
+  it("allows unicode and spaces", () => {
+    expect(sql.ident("my table").sql).toBe('"my table"');
+    expect(sql.ident("café").sql).toBe('"café"');
+  });
+
+  it("rejects zero parts", () => {
+    expect(() => sql.ident()).toThrow(TypeError);
+  });
+
+  it("rejects empty string", () => {
+    expect(() => sql.ident("")).toThrow(TypeError);
+  });
+
+  it("rejects NUL", () => {
+    expect(() => sql.ident("a\x00b")).toThrow(TypeError);
+  });
+});
+
+describe("ident - bigquery", () => {
+  const sql = createSql("bigquery");
+
+  it("uses backticks", () => {
+    expect(sql.ident("status").sql).toBe("`status`");
+  });
+
+  it("multi-part", () => {
+    expect(sql.ident("project.dataset", "table").sql).toBe(
+      "`project.dataset`.`table`",
+    );
+  });
+
+  it("escapes backtick", () => {
+    expect(sql.ident("a`b").sql).toBe("`a\\`b`");
+  });
+
+  it("escapes backslash", () => {
+    expect(sql.ident("a\\b").sql).toBe("`a\\\\b`");
+  });
+
+  it("rejects newline", () => {
+    expect(() => sql.ident("a\nb")).toThrow(TypeError);
+  });
+
+  it("rejects carriage return", () => {
+    expect(() => sql.ident("a\rb")).toThrow(TypeError);
+  });
+
+  it("rejects NUL", () => {
+    expect(() => sql.ident("a\x00b")).toThrow(TypeError);
+  });
+});

@@ -53,6 +53,50 @@ export function createSql(dialect: Dialect): Sql {
     return makeSafe(s);
   }
 
+  function ident(...parts: string[]): SafeSql {
+    if (parts.length === 0) {
+      throw new TypeError("ident() requires at least one part");
+    }
+    const escaped = parts.map((p) => quoteIdentPart(p));
+    return makeSafe(escaped.join("."));
+  }
+
+  function quoteIdentPart(part: unknown): string {
+    if (typeof part !== "string") {
+      throw new TypeError(
+        `ident() part must be a non-empty string, got: ${String(part)}`,
+      );
+    }
+    if (part === "") {
+      throw new TypeError(
+        `ident() part must be a non-empty string, got: ${JSON.stringify(part)}`,
+      );
+    }
+    if (dialect === "snowflake") {
+      if (part.includes("\x00")) {
+        throw new TypeError(
+          "ident() part contains NUL, which is not permitted in snowflake identifiers",
+        );
+      }
+      return `"${part.replace(/"/g, '""')}"`;
+    }
+    // bigquery
+    const rejects: [string, string][] = [
+      ["\x00", "NUL"],
+      ["\n", "newline"],
+      ["\r", "carriage return"],
+    ];
+    for (const [bad, name] of rejects) {
+      if (part.includes(bad)) {
+        throw new TypeError(
+          `ident() part contains ${name}, which is not permitted in bigquery identifiers`,
+        );
+      }
+    }
+    const escaped = part.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
+    return `\`${escaped}\``;
+  }
+
   // Tag function — populated in subsequent tasks.
   function tag(_strings: TemplateStringsArray, ..._values: unknown[]): string {
     throw new Error("sql`...` not implemented yet");
@@ -66,9 +110,7 @@ export function createSql(dialect: Dialect): Sql {
   api.literal = () => {
     throw new Error("literal() not implemented yet");
   };
-  api.ident = () => {
-    throw new Error("ident() not implemented yet");
-  };
+  api.ident = ident;
   api.date = () => {
     throw new Error("date() not implemented yet");
   };
