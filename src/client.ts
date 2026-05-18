@@ -28,6 +28,14 @@ import {
   QueryServiceError,
   ValidationError,
 } from "./errors";
+
+function assertPositiveInteger(name: string, value: number): void {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new ValidationError(
+      `${name} must be a positive integer, got ${value}`
+    );
+  }
+}
 import {
   type ApiErrorResponse,
   type ClientConfig,
@@ -42,13 +50,14 @@ import {
   isTerminalState,
 } from "./types";
 
-const VERSION = "0.1.4";
+const VERSION = "0.1.5";
 
 const DEFAULT_TIMEOUT = 120000; // 2 minutes
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_POLL_INTERVAL_START = 100; // 100ms
 const DEFAULT_POLL_INTERVAL_MAX = 2000; // 2s
 const DEFAULT_MAX_WAIT_TIME = 300000; // 5 minutes
+const DEFAULT_EXECUTE_QUERY_PAGE_SIZE = 5000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -383,21 +392,109 @@ export class Client {
       maxWaitTime: options.maxWaitTime,
     });
 
-    // Fetch results for each statement
+    // Fetch results for each statement, auto-paginating across pages so that
+    // result sets larger than `pageSize` are returned in full rather than
+    // silently truncated. See: https://github.com/keboola/query-service-api-js-sdk/issues/4
+    const pageSize = options.pageSize ?? DEFAULT_EXECUTE_QUERY_PAGE_SIZE;
+    const maxRows = options.maxRows;
+
+    assertPositiveInteger("pageSize", pageSize);
+    if (maxRows !== undefined) assertPositiveInteger("maxRows", maxRows);
+
     const results: QueryResult[] = [];
     for (const statement of status.statements) {
-      const result = await this.getJobResults({
-        queryJobId: jobId,
-        statementId: statement.id,
-      });
-      results.push(result);
+      const merged = await this.fetchAllResults(
+        jobId,
+        statement.id,
+        pageSize,
+        maxRows
+      );
+      results.push(merged);
     }
 
     return results;
   }
 
+  private async fetchAllResults(
+    queryJobId: string,
+    statementId: string,
+    pageSize: number,
+    maxRows: number | undefined
+  ): Promise<QueryResult> {
+    const allData: unknown[][] = [];
+    let offset = 0;
+    let firstPage: QueryResult | undefined;
+
+    while (true) {
+      const remaining =
+        maxRows !== undefined ? maxRows - allData.length : undefined;
+      if (remaining !== undefined && remaining <= 0) break;
+
+      const currentPageSize =
+        remaining !== undefined ? Math.min(pageSize, remaining) : pageSize;
+
+      const page = await this.getJobResults({
+        queryJobId,
+        statementId,
+        offset,
+        pageSize: currentPageSize,
+      });
+
+      if (!firstPage) firstPage = page;
+
+      allData.push(...page.data);
+
+      // Stop when the page is shorter than what we asked for: either we hit
+      // the end of the result set or the server returned a partial last page.
+      if (page.data.length < currentPageSize) break;
+
+      // Some statements (DDL, DML without RETURNING, etc.) don't have a row
+      // count and just return an empty data array on the first page.
+      if (page.data.length === 0) break;
+
+      offset += page.data.length;
+
+      // Defensive stop: if numberOfRows is known and we've fetched it all.
+      if (
+        firstPage.numberOfRows !== undefined &&
+        allData.length >= firstPage.numberOfRows
+      ) {
+        break;
+      }
+    }
+
+    if (!firstPage) {
+      // Unreachable: pageSize/maxRows are validated as positive integers in
+      // executeQuery, so the first iteration always issues a request and
+      // assigns firstPage. Kept for type narrowing.
+      throw new QueryServiceError(
+        `Failed to fetch results for statement ${statementId}`
+      );
+    }
+
+    return {
+      ...firstPage,
+      data: allData,
+    };
+  }
+
   /**
    * Stream results as an async generator.
+   *
+   * **Requires HTTP/2.** The `/results/stream` endpoint only accepts HTTP/2
+   * connections, but Node's built-in `fetch` negotiates HTTP/1.1. To enable
+   * HTTP/2 for the global fetch in Node, configure undici's global
+   * dispatcher before instantiating the client:
+   *
+   * ```typescript
+   * import { setGlobalDispatcher, Agent } from "undici";
+   * setGlobalDispatcher(new Agent({ allowH2: true }));
+   * ```
+   *
+   * In browser environments HTTP/2 negotiation Just Works.
+   *
+   * If HTTP/2 is unavailable, prefer {@link executeQuery} (which now
+   * auto-paginates) or `getJobResults` directly for paged access.
    *
    * @param queryJobId - Query job ID
    * @param statementId - Statement ID
@@ -435,6 +532,25 @@ export class Client {
       } catch {
         // Not JSON
       }
+
+      // The Query Service returns this exception when the request was made
+      // over HTTP/1.1. Node's built-in fetch can't negotiate HTTP/2, so this
+      // is the most common failure mode — surface a clearer message.
+      if (
+        typeof errorData.exception === "string" &&
+        errorData.exception.includes("HTTP/2")
+      ) {
+        throw new QueryServiceError(
+          "streamResults requires HTTP/2, but the current fetch implementation " +
+            "negotiated HTTP/1.1. Use executeQuery (which auto-paginates) or " +
+            "getJobResults directly, or enable HTTP/2 for the global fetch in " +
+            "Node via undici: " +
+            "`import { setGlobalDispatcher, Agent } from \"undici\"; " +
+            "setGlobalDispatcher(new Agent({ allowH2: true }));`",
+          { statusCode: response.status, exceptionId: errorData.exceptionId }
+        );
+      }
+
       this.handleError(response.status, errorData, responseText);
     }
 

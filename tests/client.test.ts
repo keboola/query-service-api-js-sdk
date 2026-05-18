@@ -316,7 +316,7 @@ describe("Client", () => {
         }),
       });
 
-      // Get results
+      // Get results (single small page — short row count terminates pagination)
       mockFetch.mockResolvedValueOnce({
         status: 200,
         json: async () => ({
@@ -334,6 +334,287 @@ describe("Client", () => {
 
       expect(results).toHaveLength(1);
       expect(results[0].data).toEqual([[1]]);
+    });
+
+    it("should auto-paginate across multiple pages until exhausted", async () => {
+      // Submit job
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+
+      // Job completed
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          queryJobId: "job-123",
+          status: "completed",
+          actorType: "user",
+          statements: [{ id: "stmt-1", query: "SELECT *", status: "completed" }],
+          createdAt: "2024-01-01T00:00:00Z",
+          changedAt: "2024-01-01T00:00:01Z",
+        }),
+      });
+
+      const columns = [{ name: "id", type: "integer", nullable: false }];
+      // Three pages: full, full, partial — total 1200 rows
+      const fullPage1 = Array.from({ length: 500 }, (_, i) => [i]);
+      const fullPage2 = Array.from({ length: 500 }, (_, i) => [i + 500]);
+      const partialPage = Array.from({ length: 200 }, (_, i) => [i + 1000]);
+
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: fullPage1,
+          numberOfRows: 1200,
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: fullPage2,
+          numberOfRows: 1200,
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: partialPage,
+          numberOfRows: 1200,
+        }),
+      });
+
+      const results = await client.executeQuery({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["SELECT *"],
+        pageSize: 500,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].data).toHaveLength(1200);
+      expect(results[0].data[0]).toEqual([0]);
+      expect(results[0].data[1199]).toEqual([1199]);
+
+      // Verify pagination query params were passed correctly.
+      const resultCalls = mockFetch.mock.calls.filter((c) =>
+        String(c[0]).includes("/results")
+      );
+      expect(resultCalls).toHaveLength(3);
+      expect(String(resultCalls[0][0])).toContain("offset=0");
+      expect(String(resultCalls[0][0])).toContain("pageSize=500");
+      expect(String(resultCalls[1][0])).toContain("offset=500");
+      expect(String(resultCalls[2][0])).toContain("offset=1000");
+    });
+
+    it("should stop paginating when numberOfRows is reached", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          queryJobId: "job-123",
+          status: "completed",
+          actorType: "user",
+          statements: [{ id: "stmt-1", query: "SELECT *", status: "completed" }],
+          createdAt: "2024-01-01T00:00:00Z",
+          changedAt: "2024-01-01T00:00:01Z",
+        }),
+      });
+
+      const columns = [{ name: "id", type: "integer", nullable: false }];
+      // Exactly 1000 rows over two full pages — numberOfRows guard kicks in
+      // even though the second page is "full".
+      const page1 = Array.from({ length: 500 }, (_, i) => [i]);
+      const page2 = Array.from({ length: 500 }, (_, i) => [i + 500]);
+
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: page1,
+          numberOfRows: 1000,
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: page2,
+          numberOfRows: 1000,
+        }),
+      });
+
+      const results = await client.executeQuery({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["SELECT *"],
+        pageSize: 500,
+      });
+
+      expect(results[0].data).toHaveLength(1000);
+      // Should have made exactly two result requests — no third probe.
+      const resultCalls = mockFetch.mock.calls.filter((c) =>
+        String(c[0]).includes("/results")
+      );
+      expect(resultCalls).toHaveLength(2);
+    });
+
+    it("should respect maxRows cap and stop early", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          queryJobId: "job-123",
+          status: "completed",
+          actorType: "user",
+          statements: [{ id: "stmt-1", query: "SELECT *", status: "completed" }],
+          createdAt: "2024-01-01T00:00:00Z",
+          changedAt: "2024-01-01T00:00:01Z",
+        }),
+      });
+
+      const columns = [{ name: "id", type: "integer", nullable: false }];
+      const page1 = Array.from({ length: 100 }, (_, i) => [i]);
+      const page2 = Array.from({ length: 50 }, (_, i) => [i + 100]);
+
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: page1,
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns,
+          data: page2,
+        }),
+      });
+
+      const results = await client.executeQuery({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["SELECT *"],
+        pageSize: 100,
+        maxRows: 150,
+      });
+
+      expect(results[0].data).toHaveLength(150);
+      // Last call should request only the remaining 50 rows.
+      const resultCalls = mockFetch.mock.calls.filter((c) =>
+        String(c[0]).includes("/results")
+      );
+      expect(resultCalls).toHaveLength(2);
+      expect(String(resultCalls[1][0])).toContain("pageSize=50");
+    });
+
+    it.each([
+      { name: "pageSize zero", opts: { pageSize: 0 } },
+      { name: "pageSize negative", opts: { pageSize: -1 } },
+      { name: "pageSize non-integer", opts: { pageSize: 1.5 } },
+      { name: "maxRows zero", opts: { maxRows: 0 } },
+      { name: "maxRows negative", opts: { maxRows: -10 } },
+      { name: "maxRows non-integer", opts: { maxRows: 2.5 } },
+    ])("should reject invalid pagination options ($name)", async ({ opts }) => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          queryJobId: "job-123",
+          status: "completed",
+          actorType: "user",
+          statements: [{ id: "stmt-1", query: "SELECT 1", status: "completed" }],
+          createdAt: "2024-01-01T00:00:00Z",
+          changedAt: "2024-01-01T00:00:01Z",
+        }),
+      });
+
+      await expect(
+        client.executeQuery({
+          branchId: "branch-1",
+          workspaceId: "ws-1",
+          statements: ["SELECT 1"],
+          ...opts,
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it("should handle empty result sets without extra requests", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          queryJobId: "job-123",
+          status: "completed",
+          actorType: "user",
+          statements: [
+            { id: "stmt-1", query: "CREATE TABLE t (x INT)", status: "completed" },
+          ],
+          createdAt: "2024-01-01T00:00:00Z",
+          changedAt: "2024-01-01T00:00:01Z",
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          status: "completed",
+          columns: [],
+          data: [],
+          rowsAffected: 0,
+        }),
+      });
+
+      const results = await client.executeQuery({
+        branchId: "branch-1",
+        workspaceId: "ws-1",
+        statements: ["CREATE TABLE t (x INT)"],
+      });
+
+      expect(results[0].data).toEqual([]);
+      const resultCalls = mockFetch.mock.calls.filter((c) =>
+        String(c[0]).includes("/results")
+      );
+      expect(resultCalls).toHaveLength(1);
+    });
+  });
+
+  describe("streamResults", () => {
+    it("should give a clear error when HTTP/2 is unavailable", async () => {
+      mockFetch.mockResolvedValueOnce({
+        status: 400,
+        text: async () =>
+          JSON.stringify({
+            exception: "Streaming requires HTTP/2. Retry the request over HTTP/2.",
+          }),
+      });
+
+      const gen = client.streamResults("job-123", "stmt-1");
+      await expect(gen.next()).rejects.toThrow(
+        /HTTP\/2.*executeQuery|executeQuery.*HTTP\/2/s
+      );
     });
   });
 

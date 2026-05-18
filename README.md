@@ -114,6 +114,22 @@ const result = await client.getJobResults({
 });
 ```
 
+### Large Result Sets
+
+`executeQuery` automatically paginates results, so any result set — including
+those with more than the API's default page size of 500 rows — is returned in
+full:
+
+```typescript
+const results = await client.executeQuery({
+  branchId: '123',
+  workspaceId: '456',
+  statements: ['SELECT * FROM big_table'],  // 100k rows? No problem.
+  pageSize: 5000,   // optional, internal page size (default: 5000)
+  maxRows: 50000,   // optional, cap total rows fetched per statement
+});
+```
+
 ### Streaming Large Results
 
 ```typescript
@@ -122,6 +138,20 @@ for await (const row of client.streamResults(jobId, statementId)) {
   processRow(row);
 }
 ```
+
+> **Note:** `streamResults` requires HTTP/2. Node's built-in `fetch` negotiates
+> HTTP/1.1, so calling `streamResults` from Node without HTTP/2 will fail with
+> a clear error directing you back to `executeQuery` (which auto-paginates) or
+> `getJobResults`. To enable HTTP/2 for the global fetch in Node, configure
+> [undici](https://github.com/nodejs/undici)'s global dispatcher once at
+> startup:
+>
+> ```typescript
+> import { setGlobalDispatcher, Agent } from "undici";
+> setGlobalDispatcher(new Agent({ allowH2: true }));
+> ```
+>
+> Browsers negotiate HTTP/2 automatically and don't need any setup.
 
 ### Error Handling
 
