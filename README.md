@@ -140,9 +140,18 @@ for await (const row of client.streamResults(jobId, statementId)) {
 ```
 
 > **Note:** `streamResults` requires HTTP/2. Node's built-in `fetch` negotiates
-> HTTP/1.1 and the call will fail with a clear error directing you back to
-> `executeQuery` (which auto-paginates) or `getJobResults`. To stream from
-> Node, supply an HTTP/2-capable fetch (e.g. `undici` with `allowH2: true`).
+> HTTP/1.1, so calling `streamResults` from Node without HTTP/2 will fail with
+> a clear error directing you back to `executeQuery` (which auto-paginates) or
+> `getJobResults`. To enable HTTP/2 for the global fetch in Node, configure
+> [undici](https://github.com/nodejs/undici)'s global dispatcher once at
+> startup:
+>
+> ```typescript
+> import { setGlobalDispatcher, Agent } from "undici";
+> setGlobalDispatcher(new Agent({ allowH2: true }));
+> ```
+>
+> Browsers negotiate HTTP/2 automatically and don't need any setup.
 
 ### Error Handling
 

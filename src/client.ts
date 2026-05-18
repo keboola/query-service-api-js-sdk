@@ -28,6 +28,14 @@ import {
   QueryServiceError,
   ValidationError,
 } from "./errors";
+
+function assertPositiveInteger(name: string, value: number): void {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new ValidationError(
+      `${name} must be a positive integer, got ${value}`
+    );
+  }
+}
 import {
   type ApiErrorResponse,
   type ClientConfig,
@@ -390,6 +398,9 @@ export class Client {
     const pageSize = options.pageSize ?? DEFAULT_EXECUTE_QUERY_PAGE_SIZE;
     const maxRows = options.maxRows;
 
+    assertPositiveInteger("pageSize", pageSize);
+    if (maxRows !== undefined) assertPositiveInteger("maxRows", maxRows);
+
     const results: QueryResult[] = [];
     for (const statement of status.statements) {
       const merged = await this.fetchAllResults(
@@ -453,8 +464,9 @@ export class Client {
     }
 
     if (!firstPage) {
-      // No statements iterated — should be unreachable given the while(true)
-      // above always runs at least once, but kept for type narrowing.
+      // Unreachable: pageSize/maxRows are validated as positive integers in
+      // executeQuery, so the first iteration always issues a request and
+      // assigns firstPage. Kept for type narrowing.
       throw new QueryServiceError(
         `Failed to fetch results for statement ${statementId}`
       );
@@ -470,9 +482,16 @@ export class Client {
    * Stream results as an async generator.
    *
    * **Requires HTTP/2.** The `/results/stream` endpoint only accepts HTTP/2
-   * connections, but Node's built-in `fetch` negotiates HTTP/1.1. To use
-   * this method from Node, pass an HTTP/2-capable fetch (e.g. `undici` with
-   * `allowH2: true`). In browser environments this normally Just Works.
+   * connections, but Node's built-in `fetch` negotiates HTTP/1.1. To enable
+   * HTTP/2 for the global fetch in Node, configure undici's global
+   * dispatcher before instantiating the client:
+   *
+   * ```typescript
+   * import { setGlobalDispatcher, Agent } from "undici";
+   * setGlobalDispatcher(new Agent({ allowH2: true }));
+   * ```
+   *
+   * In browser environments HTTP/2 negotiation Just Works.
    *
    * If HTTP/2 is unavailable, prefer {@link executeQuery} (which now
    * auto-paginates) or `getJobResults` directly for paged access.
@@ -524,8 +543,10 @@ export class Client {
         throw new QueryServiceError(
           "streamResults requires HTTP/2, but the current fetch implementation " +
             "negotiated HTTP/1.1. Use executeQuery (which auto-paginates) or " +
-            "getJobResults directly, or supply an HTTP/2-capable fetch " +
-            "(e.g. undici with allowH2: true).",
+            "getJobResults directly, or enable HTTP/2 for the global fetch in " +
+            "Node via undici: " +
+            "`import { setGlobalDispatcher, Agent } from \"undici\"; " +
+            "setGlobalDispatcher(new Agent({ allowH2: true }));`",
           { statusCode: response.status, exceptionId: errorData.exceptionId }
         );
       }

@@ -525,6 +525,40 @@ describe("Client", () => {
       expect(String(resultCalls[1][0])).toContain("pageSize=50");
     });
 
+    it.each([
+      { name: "pageSize zero", opts: { pageSize: 0 } },
+      { name: "pageSize negative", opts: { pageSize: -1 } },
+      { name: "pageSize non-integer", opts: { pageSize: 1.5 } },
+      { name: "maxRows zero", opts: { maxRows: 0 } },
+      { name: "maxRows negative", opts: { maxRows: -10 } },
+      { name: "maxRows non-integer", opts: { maxRows: 2.5 } },
+    ])("should reject invalid pagination options ($name)", async ({ opts }) => {
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({ queryJobId: "job-123" }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          queryJobId: "job-123",
+          status: "completed",
+          actorType: "user",
+          statements: [{ id: "stmt-1", query: "SELECT 1", status: "completed" }],
+          createdAt: "2024-01-01T00:00:00Z",
+          changedAt: "2024-01-01T00:00:01Z",
+        }),
+      });
+
+      await expect(
+        client.executeQuery({
+          branchId: "branch-1",
+          workspaceId: "ws-1",
+          statements: ["SELECT 1"],
+          ...opts,
+        })
+      ).rejects.toThrow(ValidationError);
+    });
+
     it("should handle empty result sets without extra requests", async () => {
       mockFetch.mockResolvedValueOnce({
         status: 200,
