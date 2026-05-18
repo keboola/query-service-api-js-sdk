@@ -115,6 +115,14 @@ export interface ExecuteQueryOptions {
   maxWaitTime?: number;
   /** Whether to refresh workspace metadata after successful execution */
   refreshMetadataOnSuccess?: boolean;
+  /** Page size used internally when auto-paginating result sets (default: 5000) */
+  pageSize?: number;
+  /**
+   * Maximum total rows to fetch per statement. When set, pagination stops
+   * once this many rows have been collected. Use to cap memory for very
+   * large result sets. Defaults to unlimited.
+   */
+  maxRows?: number;
 }
 
 /** Options for submitting a job */
