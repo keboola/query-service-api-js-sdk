@@ -1,5 +1,7 @@
 # Keboola Query Service TypeScript SDK
 
+> **Deprecated.** This package is retired in favor of [`@keboola/api-client`](https://github.com/keboola/ui/tree/main/packages/api-client)'s `queryService` client (`@keboola/api-client/queryService`), which carries the same `executeQuery`/auto-pagination behavior (see [keboola/ui#8059](https://github.com/keboola/ui/pull/8059)). This repo is archived and receives no further updates or npm releases; `@keboola/query-service` on npm is deprecated but remains installable for existing consumers.
+
 TypeScript client for [Keboola Query Service API](https://query.keboola.com/api/v1/documentation).
 
 ## Installation
